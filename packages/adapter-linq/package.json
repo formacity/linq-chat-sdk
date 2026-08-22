@@ -12,15 +12,15 @@
     "linq",
     "sms"
   ],
-  "homepage": "https://github.com/filip-pilar/linq-chat-sdk/tree/main/packages/adapter-linq#readme",
+  "homepage": "https://github.com/formacity/linq-chat-sdk/tree/main/packages/adapter-linq#readme",
   "bugs": {
-    "url": "https://github.com/filip-pilar/linq-chat-sdk/issues"
+    "url": "https://github.com/formacity/linq-chat-sdk/issues"
   },
   "license": "Apache-2.0",
   "author": "Forma",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/filip-pilar/linq-chat-sdk.git",
+    "url": "git+https://github.com/formacity/linq-chat-sdk.git",
     "directory": "packages/adapter-linq"
   },
   "files": [

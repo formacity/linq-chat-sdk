@@ -1,14 +1,12 @@
-import { createHmac } from "node:crypto";
-
 import type { ChatInstance, Logger, StateAdapter } from "chat";
 import { describe, expect, it, vi } from "vitest";
 
 import { createLinqAdapter, type LinqAdapter } from "../src/index.js";
+import contactCardFixture from "./fixtures/contact-card-received-2026-02-03.json";
 import fixture from "./fixtures/message-received-2026-02-03.json";
 import unknownFixture from "./fixtures/unknown-event-2026-02-03.json";
 
-const SIGNING_KEY = "test_linq_webhook_secret";
-const SIGNING_SECRET = `whsec_${Buffer.from(SIGNING_KEY).toString("base64")}`;
+import { createStandardRequest, SIGNING_SECRET } from "./webhook-fixture.js";
 const EVENT_DEDUPE_TTL_MS = 60 * 60 * 1000;
 
 describe("verified generic Linq event dispatch", () => {
@@ -18,6 +16,7 @@ describe("verified generic Linq event dispatch", () => {
     "participant.added",
     "chat.typing_indicator.started",
     "phone_number.status_updated",
+    "contact_card.received",
     "call.answered",
   ] as const)(
     "delivers valid canonical raw-only %s events to named and generic handlers",
@@ -48,6 +47,81 @@ describe("verified generic Linq event dispatch", () => {
       expect(context.processMessage).not.toHaveBeenCalled();
       expect(context.processReaction).not.toHaveBeenCalled();
       expect(retrieve).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves a line-level contact card without inventing a chat or media workflow", async () => {
+    const context = await createContext();
+    const named = vi.fn();
+    const tasks: Promise<unknown>[] = [];
+    const fetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected I/O"));
+    context.adapter.onLinqEvent("contact_card.received", named);
+    try {
+      const verification = await context.adapter.verifyWebhook(
+        createStandardRequest(contactCardFixture),
+      );
+      expect(verification).toMatchObject({
+        ok: true,
+        webhook: { kind: "unhandled", rawEvent: contactCardFixture },
+      });
+      const response = await context.adapter.handleWebhook(
+        createStandardRequest(contactCardFixture),
+        {
+          waitUntil: (task) => tasks.push(task),
+        },
+      );
+      await Promise.all(tasks);
+      expect(response.status).toBe(200);
+      expect(named).toHaveBeenCalledOnce();
+      const event = named.mock.calls[0]?.[0];
+      expect(event).toMatchObject({ type: "contact_card.received", data: contactCardFixture.data });
+      expect(event.data.chat).toBeUndefined();
+      expect(Object.isFrozen(event.data)).toBe(true);
+      expect(context.processMessage).not.toHaveBeenCalled();
+      expect(context.processReaction).not.toHaveBeenCalled();
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      fetch.mockRestore();
+    }
+  });
+
+  it.each([true, false])(
+    "retains zero_retention=%s and unknown part facts without recovery I/O",
+    async (zeroRetention) => {
+      const context = await createContext();
+      const named = vi.fn();
+      const tasks: Promise<unknown>[] = [];
+      const payload = structuredClone(fixture);
+      Object.assign(payload.data, { zero_retention: zeroRetention });
+      payload.data.parts = [
+        {
+          type: "text",
+          value: "Original text",
+          reactions: [{ type: "future-sticker-reaction", sticker: { future: [1, "opaque"] } }],
+        } as never,
+      ];
+      const fetch = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Unexpected I/O"));
+      context.adapter.onLinqEvent("message.received", named);
+      try {
+        const response = await context.adapter.handleWebhook(createStandardRequest(payload), {
+          waitUntil: (task) => tasks.push(task),
+        });
+        await Promise.all(tasks);
+        expect(response.status).toBe(200);
+        expect(named).toHaveBeenCalledWith(
+          expect.objectContaining({ data: payload.data, rawEvent: payload }),
+        );
+        expect(
+          Object.isFrozen(
+            named.mock.calls[0]?.[0].rawEvent.data.parts[0].reactions[0].sticker.future,
+          ),
+        ).toBe(true);
+        const factory = context.processMessage.mock.calls[0]?.[2] as () => Promise<unknown>;
+        expect(await factory()).toMatchObject({ text: "Original text" });
+        expect(fetch).not.toHaveBeenCalled();
+      } finally {
+        fetch.mockRestore();
+      }
     },
   );
 
@@ -565,26 +639,6 @@ function reactionPayload(): Record<string, unknown> {
       from_handle: fixture.data.sender_handle,
     },
   };
-}
-
-function createStandardRequest(payload: unknown, overrides: Record<string, string> = {}): Request {
-  const body = JSON.stringify(payload);
-  const timestamp = overrides["webhook-timestamp"] ?? Math.floor(Date.now() / 1000).toString();
-  const webhookId = overrides["webhook-id"] ?? "webhook-test-id";
-  const signature = `v1,${createHmac("sha256", SIGNING_KEY)
-    .update(`${webhookId}.${timestamp}.${body}`)
-    .digest("base64")}`;
-
-  return new Request("https://example.com/webhooks/linq", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "webhook-id": webhookId,
-      "webhook-signature": signature,
-      "webhook-timestamp": timestamp,
-    },
-    body,
-  });
 }
 
 function createDeferred(): { promise: Promise<void>; resolve: () => void } {

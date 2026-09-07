@@ -2,6 +2,7 @@ import { LinqAPIV3 } from "@linqapp/sdk";
 import { Message, NotImplementedError, paragraph, root, text as textNode } from "chat";
 import type { Attachment, FormattedContent, LinkPreview } from "chat";
 
+import { validMentionRange } from "./mention-range.js";
 import { isRecord, isUsableLinqChatId, isUsableLinqId } from "./guards.js";
 import { createLinqAttachmentFetcher } from "./inbound-media.js";
 import { parseLinqTimestamp, selectLinqMessageTimestamp } from "./timestamps.js";
@@ -97,6 +98,7 @@ export function isLinqOwnerMention(raw: LinqMessageReceivedWebhookData): boolean
     raw.chat.is_group !== true ||
     !isRecord(raw.chat.owner_handle) ||
     typeof raw.chat.owner_handle.handle !== "string" ||
+    raw.chat.owner_handle.handle.length === 0 ||
     !Array.isArray(raw.parts)
   ) {
     return false;
@@ -104,29 +106,29 @@ export function isLinqOwnerMention(raw: LinqMessageReceivedWebhookData): boolean
 
   const ownerHandle = raw.chat.owner_handle.handle;
   return raw.parts.some((part) => {
-    const decorations = isRecord(part) ? part.text_decorations : undefined;
-    if (
-      !isRecord(part) ||
-      part.type !== "text" ||
-      typeof part.value !== "string" ||
-      part.value.length === 0 ||
-      part.mention !== ownerHandle ||
-      (decorations !== undefined && decorations !== null && !Array.isArray(decorations)) ||
-      (Array.isArray(decorations) && decorations.length > 0)
-    ) {
+    if (!isRecord(part) || part.type !== "text" || typeof part.value !== "string" || !part.value) {
       return false;
     }
 
-    const range = part.mention_range;
-    if (range === undefined || range === null) return true;
+    // A present modern field is authoritative, even null, empty, or malformed.
+    // Never resurrect the deprecated first mention when modern facts disagree.
+    if (part.mentions !== undefined) {
+      return (
+        Array.isArray(part.mentions) &&
+        part.mentions.some(
+          (mention) =>
+            isRecord(mention) &&
+            mention.is_me === true &&
+            mention.handle === ownerHandle &&
+            validMentionRange(mention.range, part.value),
+        )
+      );
+    }
+
+    // Compatibility with older authenticated payloads that omit mentions entirely.
     return (
-      Array.isArray(range) &&
-      range.length === 2 &&
-      Number.isInteger(range[0]) &&
-      Number.isInteger(range[1]) &&
-      (range[0] as number) >= 0 &&
-      (range[0] as number) < (range[1] as number) &&
-      (range[1] as number) <= part.value.length
+      part.mention === ownerHandle &&
+      (part.mention_range == null || validMentionRange(part.mention_range, part.value))
     );
   });
 }

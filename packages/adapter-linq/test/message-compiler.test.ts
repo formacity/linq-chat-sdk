@@ -4,42 +4,58 @@ import type { AdapterPostableMessage } from "chat";
 import { describe, expect, it, vi } from "vitest";
 
 import { createLinqAdapter, linqMessage } from "../src/index.js";
-import { compileLinqMessageText } from "../src/message-compiler.js";
+import { compileLinqMessage } from "../src/message-compiler.js";
 
-describe("compileLinqMessageText", () => {
+describe("compileLinqMessage", () => {
+  it("compiles content and options together and rejects invalid options on the production path", () => {
+    expect(
+      compileLinqMessage(linqMessage({ markdown: "**Ready**" }, { preferredService: "iMessage" })),
+    ).toEqual({
+      content: { text: "Ready", decorations: [{ range: [0, 5], style: "bold" }] },
+      options: { preferredService: "iMessage" },
+    });
+    for (const linq of [null, false, 1, "ignored before", []]) {
+      expect(() => compileLinqMessage({ raw: "hello", linq } as AdapterPostableMessage)).toThrow(
+        ValidationError,
+      );
+    }
+  });
+
   it("renders raw, Markdown, AST, links, newlines, and static card text deterministically", () => {
-    expect(compileLinqMessageText("  raw text  ")).toEqual({
+    expect(compileLinqMessage("  raw text  ").content).toEqual({
       text: "raw text",
       decorations: [],
     });
-    expect(compileLinqMessageText({ markdown: "" })).toEqual({ text: "", decorations: [] });
+    expect(compileLinqMessage({ markdown: "" }).content).toEqual({ text: "", decorations: [] });
     expect(
-      compileLinqMessageText({
+      compileLinqMessage({
         markdown: "[**bold link**](https://example.com)\n\nnext",
-      }),
+      }).content,
     ).toEqual({
       text: "bold link\n\nnext",
       decorations: [{ range: [0, 9], style: "bold" }],
     });
     expect(
-      compileLinqMessageText({
+      compileLinqMessage({
         ast: root([paragraph([strikethrough([text("gone")])]), paragraph([text("next")])]),
-      }),
+      }).content,
     ).toEqual({
       text: "gone\n\nnext",
       decorations: [{ range: [0, 4], style: "strikethrough" }],
     });
-    expect(compileLinqMessageText({ ast: root([paragraph([strong([text(" bold ")])])]) })).toEqual({
+    expect(
+      compileLinqMessage({ ast: root([paragraph([strong([text(" bold ")])])]) }).content,
+    ).toEqual({
       text: "bold",
       decorations: [{ range: [0, 4], style: "bold" }],
     });
     expect(
-      compileLinqMessageText(
+      compileLinqMessage(
         Card({
           title: "Status",
           children: [CardText("**Ready** and _waiting_")],
         }),
-      ),
+      ).content,
     ).toEqual({
       text: "Status\nReady and waiting",
       decorations: [
@@ -51,14 +67,14 @@ describe("compileLinqMessageText", () => {
 
   it("uses UTF-16 code-unit offsets without normalizing emoji or combining characters", () => {
     expect(
-      compileLinqMessageText(
+      compileLinqMessage(
         linqMessage("😀e\u0301!", {
           decorations: [
             { range: [0, 2], style: "bold" },
             { range: [2, 4], style: "underline" },
           ],
         }),
-      ),
+      ).content,
     ).toEqual({
       text: "😀e\u0301!",
       decorations: [
@@ -73,7 +89,7 @@ describe("compileLinqMessageText", () => {
       decorations: [{ range: [3, 5], style: "underline" }],
     });
 
-    expect(compileLinqMessageText(message)).toEqual({
+    expect(compileLinqMessage(message).content).toEqual({
       text: "hi 😀",
       decorations: [{ range: [3, 5], style: "underline" }],
     });
@@ -97,7 +113,7 @@ describe("compileLinqMessageText", () => {
       },
     );
 
-    expect(compileLinqMessageText(message)).toEqual({
+    expect(compileLinqMessage(message).content).toEqual({
       text: "A B C",
       decorations: [
         { range: [0, 5], style: "bold" },
@@ -110,7 +126,7 @@ describe("compileLinqMessageText", () => {
 
   it("allows adjacent animations but rejects animation overlap with any decoration", () => {
     expect(
-      compileLinqMessageText(
+      compileLinqMessage(
         linqMessage("abcd", {
           decorations: [
             { range: [0, 2], animation: "shake" },
@@ -118,29 +134,31 @@ describe("compileLinqMessageText", () => {
             { range: [2, 4], animation: "bloom" },
           ],
         }),
-      ).decorations,
+      ).content.decorations,
     ).toEqual([
       { range: [0, 2], animation: "shake" },
       { range: [2, 4], animation: "bloom" },
     ]);
 
-    expect(() =>
-      compileLinqMessageText(
-        linqMessage(
-          { markdown: "**abcd**" },
-          { decorations: [{ range: [1, 3], animation: "shake" }] },
-        ),
-      ),
+    expect(
+      () =>
+        compileLinqMessage(
+          linqMessage(
+            { markdown: "**abcd**" },
+            { decorations: [{ range: [1, 3], animation: "shake" }] },
+          ),
+        ).content,
     ).toThrow("animation ranges cannot overlap");
-    expect(() =>
-      compileLinqMessageText(
-        linqMessage("abcd", {
-          decorations: [
-            { range: [0, 3], animation: "shake" },
-            { range: [2, 4], animation: "bloom" },
-          ],
-        }),
-      ),
+    expect(
+      () =>
+        compileLinqMessage(
+          linqMessage("abcd", {
+            decorations: [
+              { range: [0, 3], animation: "shake" },
+              { range: [2, 4], animation: "bloom" },
+            ],
+          }),
+        ).content,
     ).toThrow("animation ranges cannot overlap");
   });
 
@@ -158,7 +176,7 @@ describe("compileLinqMessageText", () => {
     ["unknown animation", { range: [0, 1], animation: "spin" }],
   ])("rejects %s", (_name, decoration) => {
     const message = { raw: "abcd", linq: { decorations: [decoration] } } as AdapterPostableMessage;
-    expect(() => compileLinqMessageText(message)).toThrow(ValidationError);
+    expect(() => compileLinqMessage(message).content).toThrow(ValidationError);
   });
 
   it("rejects decorations on empty text", () => {
@@ -166,7 +184,7 @@ describe("compileLinqMessageText", () => {
       raw: "",
       linq: { decorations: [{ range: [0, 1], style: "bold" }] },
     } as AdapterPostableMessage;
-    expect(() => compileLinqMessageText(message)).toThrow(ValidationError);
+    expect(() => compileLinqMessage(message).content).toThrow(ValidationError);
   });
 });
 

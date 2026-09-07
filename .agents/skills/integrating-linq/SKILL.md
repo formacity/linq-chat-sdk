@@ -6,7 +6,7 @@ description: Integrates the Linq Partner API for webhook intake, subscription se
 # Integrating Linq
 
 Use this workflow when changing Linq integration or `packages/adapter-linq`. Provider facts below
-were reverified on **2026-08-22**; recheck current sources before relying on versioned schemas,
+were reverified on **2026-09-07**; recheck current sources before relying on versioned schemas,
 operations, event names, limits, or delivery behavior.
 
 ## Evidence precedence
@@ -25,13 +25,14 @@ installed SDK exposes it, and a generated SDK union may lag current provider eve
 
 Start at:
 
-- `https://docs.linqapp.com/llms.txt` — current documentation index;
-- `https://docs.linqapp.com/guides/webhooks/` — verification, versioning, and delivery guarantees;
-- `https://docs.linqapp.com/guides/webhooks/events/` — envelope and event examples;
-- `https://docs.linqapp.com/guides/webhooks/subscriptions/` — subscription lifecycle;
-- `https://docs.linqapp.com/guides/integrations/chat-sdk/` — Linq's published Chat SDK integration;
-- `https://docs.linqapp.com/guides/messaging/` — message behavior;
-- `https://docs.linqapp.com/getting-started/sdks/` — official client behavior; and
+- `https://docs.linqapp.com/llms.txt` — channel index; follow the iMessage
+  `https://docs.linqapp.com/channel/imessage/llms.txt` for current page paths;
+- `https://docs.linqapp.com/channel/imessage/guides/webhooks/` — verification, versioning, and delivery guarantees;
+- `https://docs.linqapp.com/channel/imessage/guides/webhooks/events/` — envelope and event examples;
+- `https://docs.linqapp.com/channel/imessage/guides/webhooks/subscriptions/` — subscription lifecycle;
+- `https://docs.linqapp.com/channel/imessage/guides/integrations/chat-sdk/` — Linq's published Chat SDK integration;
+- `https://docs.linqapp.com/channel/imessage/guides/messaging/` — message behavior;
+- `https://docs.linqapp.com/channel/imessage/getting-started/sdks/` — official client behavior; and
 - `https://cdn.linqapp.com/openapi/linq-api-v3.yaml` — canonical endpoints, schemas, and event enum.
 
 Use the index to discover current page paths rather than guessing old documentation URLs.
@@ -78,13 +79,16 @@ The signed content is:
 {webhook-id}.{webhook-timestamp}.{raw_body}
 ```
 
-The current adapter verifies this scheme directly with `standardwebhooks@1.0.0`. Standard secrets
+The current adapter verifies this scheme directly with `standardwebhooks@1.1.1`. Standard secrets
 use the `whsec_` format, and signatures use `v1,{base64}` values. Linq's current Chat SDK integration
 page still describes the older `{timestamp}.{body}` HMAC shape, while the primary webhook guide
-specifies Standard Webhooks over `{webhook-id}.{webhook-timestamp}.{body}`. The documentation also
-describes SDK `webhooks.unwrap()`, but installed `@linqapp/sdk@0.44.3` does not expose that method or
-wrapper event types at runtime or in declarations. Treat these as provider documentation/SDK
-discrepancies and follow the primary webhook guide plus the installed runtime.
+specifies Standard Webhooks over `{webhook-id}.{webhook-timestamp}.{body}`. Installed `@linqapp/sdk@0.62.0` now exposes
+`webhooks.unwrap()` and generated event types. Its existence does not replace the adapter-owned
+verification/error contract. Keep direct Standard Webhooks verification, explicit trusted
+forwarding, and lossless future-event handling. Version 1.1.1 rejects empty decoded secrets and
+returns undefined for authenticated empty bodies; the adapter explicitly parses after
+authentication to preserve `invalid_json`. Refuse lossy UTF-8 round trips before using the
+reference verifier so signatures cannot authenticate substituted bytes.
 
 The repository adapter accepts Standard Webhooks only. Deprecated `X-Webhook-*` signature handling
 is not part of its public contract. Partial Standard header sets fail, and verified requests
@@ -108,11 +112,20 @@ identifies the sender, `chat` contains canonical chat facts including `id`, `is_
 `owner_handle`, and message fields such as `id`, `parts`, `sent_at`, `delivered_at`, and `read_at`
 live directly on `data`.
 
-Installed `@linqapp/sdk@0.44.3` exposes the subscription event-name enum and useful lower-level resource
-types, but no exhaustive webhook envelope union or unwrap runtime. The adapter therefore owns a
-stable envelope, a checked-in OpenAPI-derived event-name inventory, curated normalized
-message/reaction observations, and a lossless raw form for unknown/future events. The drift check
-intentionally does not inventory provider-wide operations.
+Installed `@linqapp/sdk@0.62.0` supplies useful message/resource and webhook types. The adapter
+retains a stable envelope, the canonical OpenAPI-derived 46-event inventory, curated observations,
+and a lossless raw form for unknown/future events. The drift check intentionally does not
+inventory provider-wide operations.
+
+Inbound group owner mentions use authenticated `mentions[]`: `is_me: true`, exact owner handle,
+and valid half-open UTF-16 ranges, without splitting surrogate pairs. Multiple mentions and
+formatting are allowed inbound. Only an absent `mentions` field permits the deprecated singular
+first-mention fallback; null, empty, or malformed modern values never fall back. Outbound text
+parts still use singular `mention` / `mention_range` and the existing send-side exclusions.
+
+`contact_card.received` is a named/raw line-level observation only. Preserve unknown
+reaction/sticker values and per-event `zero_retention` in raw facts; do not invent contact,
+retention, download, or persistence workflows.
 
 The installed SDK also includes the `app_clip` message part for a standalone Linq checkout URL. It is
 iMessage-only and does not downgrade to SMS or RCS. Keep outbound use on the typed native client;
@@ -120,3 +133,12 @@ the adapter normalizes an inbound App Clip URL as ordinary text/link while retai
 part for title, description, and image metadata.
 
 Read `reference/webhooks.md` for the repository-specific ingress and setup checklist.
+
+## Adapter maintenance baseline
+
+Use Chat/shared `4.40.0`, Linq SDK `0.62.0`, and `standardwebhooks@1.1.1`. The tested Chat peer
+floor is `4.40.0`. Run `pnpm check:adapter` with pnpm `12.3.4` and Node.js 22.12 or 24.
+TypeScript `7.0.2` builds declarations and maps natively; only introduce a TypeScript 6
+compatibility alias if a verified compiler-API consumer needs it. Keep installs explicit and
+frozen after lockfile preparation, and review lifecycle permissions narrowly. Example/demo
+maintenance is separate from adapter work and must not be inferred from the paths above.

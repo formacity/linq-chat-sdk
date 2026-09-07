@@ -1,3 +1,4 @@
+import { validMentionRange } from "./mention-range.js";
 import type { LinqAPIV3 } from "@linqapp/sdk";
 
 import { immutableJsonSnapshot, isRecord, isUsableLinqChatId, isUsableLinqId } from "./guards.js";
@@ -847,18 +848,7 @@ function validMentionObservationRange(
   value: unknown,
   text: unknown,
 ): readonly [number, number] | null {
-  if (
-    typeof text !== "string" ||
-    !Array.isArray(value) ||
-    value.length !== 2 ||
-    !Number.isInteger(value[0]) ||
-    !Number.isInteger(value[1]) ||
-    (value[0] as number) < 0 ||
-    (value[0] as number) >= (value[1] as number) ||
-    (value[1] as number) > text.length
-  ) {
-    return null;
-  }
+  if (!validMentionRange(value, text)) return null;
 
   return Object.freeze([value[0] as number, value[1] as number]);
 }

@@ -1,5 +1,3 @@
-import { createHmac } from "node:crypto";
-
 import {
   AdapterError,
   AdapterRateLimitError,
@@ -21,8 +19,7 @@ const MESSAGE_ID = "22222222-2222-2222-2222-222222222222";
 const PARTICIPANT_ID = "33333333-3333-3333-3333-333333333333";
 const OWNER_HANDLE = "owner@example.com";
 const TARGET_HANDLE = "+15550002000";
-const SIGNING_KEY = "test_linq_webhook_secret";
-const SIGNING_SECRET = `whsec_${Buffer.from(SIGNING_KEY).toString("base64")}`;
+import { createStandardRequest, SIGNING_SECRET } from "./webhook-fixture.js";
 
 const { adapterRandomUUID } = vi.hoisted(() => ({ adapterRandomUUID: vi.fn() }));
 
@@ -504,11 +501,6 @@ describe("native Linq mentions", () => {
         (value.data.parts[0] as unknown as { mention_range: number[] }).mention_range = [8, 3];
       },
       (value: ReturnType<typeof mentionPayload>) => {
-        (value.data.parts[0] as unknown as { text_decorations: unknown }).text_decorations = {
-          malformed: true,
-        };
-      },
-      (value: ReturnType<typeof mentionPayload>) => {
         value.data.chat.is_group = false;
       },
     ]) {
@@ -532,6 +524,99 @@ describe("native Linq mentions", () => {
     }
   });
 
+  it.each([
+    ["null", null],
+    ["empty", []],
+    ["malformed", {}],
+    ["wrong identity", [{ handle: TARGET_HANDLE, is_me: true, range: [3, 8] }]],
+    ["not this line", [{ handle: OWNER_HANDLE, is_me: false, range: [3, 8] }]],
+    ["missing flag", [{ handle: OWNER_HANDLE, range: [3, 8] }]],
+    ["missing range", [{ handle: OWNER_HANDLE, is_me: true }]],
+    ...[
+      [0, 99],
+      [2, 2],
+      [-1, 2],
+      [0, 1.5],
+      [0, 1],
+      [1, 2],
+    ].map(
+      (range) => [JSON.stringify(range), [{ handle: OWNER_HANDLE, is_me: true, range }]] as const,
+    ),
+  ] as const)(
+    "does not fall back from present invalid modern mentions: %s",
+    async (_name, mentions) => {
+      const payload = modernMentionPayload();
+      Object.assign(payload.data.parts[0]!, { mention: OWNER_HANDLE, mentions });
+      const adapter = createLinqAdapter({ apiKey: "test-key", signingSecret: SIGNING_SECRET });
+      const processMessage = vi.fn();
+      await adapter.initialize({
+        getLogger: () => silentLogger(),
+        getState: () => ({ setIfNotExists: vi.fn().mockResolvedValue(true) }),
+        processMessage,
+        processReaction: vi.fn(),
+      } as unknown as ChatInstance);
+      await adapter.handleWebhook(createStandardRequest(payload));
+      const factory = processMessage.mock.calls[0]?.[2] as () => Promise<unknown>;
+      expect(await factory()).not.toMatchObject({ isMention: true });
+    },
+  );
+
+  it.each(["first", "last", "repeated"] as const)(
+    "accepts formatted modern owner mentions in %s position",
+    async (position) => {
+      const payload = modernMentionPayload();
+      const part = payload.data.parts[0]! as unknown as { value: string; mentions: unknown[] };
+      if (position === "first") {
+        part.value = "👋 owner Dana";
+        part.mentions = [
+          { handle: OWNER_HANDLE, is_me: true, range: [3, 8] },
+          { handle: TARGET_HANDLE, is_me: false, range: [9, 13] },
+        ];
+      }
+      if (position === "repeated") {
+        part.value += " owner";
+        part.mentions.push({ handle: OWNER_HANDLE, is_me: true, range: [14, 19] });
+      }
+      const adapter = createLinqAdapter({ apiKey: "test-key", signingSecret: SIGNING_SECRET });
+      const processMessage = vi.fn();
+      await adapter.initialize({
+        getLogger: () => silentLogger(),
+        getState: () => ({ setIfNotExists: vi.fn().mockResolvedValue(true) }),
+        processMessage,
+        processReaction: vi.fn(),
+      } as unknown as ChatInstance);
+      await adapter.handleWebhook(createStandardRequest(payload));
+      const factory = processMessage.mock.calls[0]?.[2] as () => Promise<unknown>;
+      expect(await factory()).toMatchObject({ isMention: true, text: part.value });
+      const result = await adapter.verifyWebhook(createStandardRequest(payload));
+      expect(result).toMatchObject({ ok: true, webhook: { rawEvent: payload } });
+      if (!result.ok) throw new Error("Expected verification");
+      expect(Object.isFrozen(result.webhook.rawEvent.data)).toBe(true);
+    },
+  );
+
+  it.each([undefined, null])(
+    "retains the absent-modern-field fallback with omitted/null legacy range: %s",
+    async (range) => {
+      const payload = mentionPayload(OWNER_HANDLE);
+      Object.assign(payload.data.parts[0]!, {
+        mention_range: range,
+        text_decorations: [{ range: [3, 8], style: "bold" }],
+      });
+      const adapter = createLinqAdapter({ apiKey: "test-key", signingSecret: SIGNING_SECRET });
+      const processMessage = vi.fn();
+      await adapter.initialize({
+        getLogger: () => silentLogger(),
+        getState: () => ({ setIfNotExists: vi.fn().mockResolvedValue(true) }),
+        processMessage,
+        processReaction: vi.fn(),
+      } as unknown as ChatInstance);
+      await adapter.handleWebhook(createStandardRequest(payload));
+      const factory = processMessage.mock.calls[0]?.[2] as () => Promise<unknown>;
+      expect(await factory()).toMatchObject({ isMention: true });
+    },
+  );
+
   it("routes native owner mentions through Chat SDK onNewMention", async () => {
     const adapter = createLinqAdapter({ apiKey: "test-key", signingSecret: SIGNING_SECRET });
     const state = {
@@ -552,12 +637,9 @@ describe("native Linq mentions", () => {
     chat.onNewMention(mention);
     await chat.initialize();
 
-    const response = await adapter.handleWebhook(
-      createStandardRequest(mentionPayload(OWNER_HANDLE)),
-      {
-        waitUntil: (task) => tasks.push(task),
-      },
-    );
+    const response = await adapter.handleWebhook(createStandardRequest(modernMentionPayload()), {
+      waitUntil: (task) => tasks.push(task),
+    });
     await Promise.all(tasks);
 
     expect(response.status).toBe(200);
@@ -633,23 +715,22 @@ function mentionPayload(ownerHandle: string) {
   return payload;
 }
 
-function createStandardRequest(payload: unknown): Request {
-  const body = JSON.stringify(payload);
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const webhookId = crypto.randomUUID();
-  const signature = `v1,${createHmac("sha256", SIGNING_KEY)
-    .update(`${webhookId}.${timestamp}.${body}`)
-    .digest("base64")}`;
-  return new Request("https://example.com/webhooks/linq", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "webhook-id": webhookId,
-      "webhook-signature": signature,
-      "webhook-timestamp": timestamp,
-    },
-    body,
-  });
+function modernMentionPayload() {
+  const payload = mentionPayload(OWNER_HANDLE);
+  payload.data.parts = [
+    {
+      type: "text",
+      value: "👋 Dana owner",
+      mention: TARGET_HANDLE,
+      mention_range: [3, 7],
+      mentions: [
+        { handle: TARGET_HANDLE, is_me: false, range: [3, 7] },
+        { handle: OWNER_HANDLE, is_me: true, range: [8, 13] },
+      ],
+      text_decorations: [{ range: [8, 13], style: "bold" }],
+    } as never,
+  ];
+  return payload;
 }
 
 function participantMentionWithFile(): AdapterPostableMessage {

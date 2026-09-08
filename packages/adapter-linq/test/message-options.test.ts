@@ -4,7 +4,7 @@ import type { AdapterPostableMessage } from "chat";
 import { describe, expect, it, vi } from "vitest";
 
 import { createLinqAdapter, linqMessage } from "../src/index.js";
-import { compileLinqSendOptions } from "../src/message-compiler.js";
+import { compileLinqMessage } from "../src/message-compiler.js";
 
 const SCREEN_EFFECTS = [
   "confetti",
@@ -21,25 +21,27 @@ const SCREEN_EFFECTS = [
 ] as const;
 const BUBBLE_EFFECTS = ["slam", "loud", "gentle", "invisible"] as const;
 
-describe("compileLinqSendOptions", () => {
+describe("compileLinqMessage", () => {
   it.each([undefined, "iMessage", "RCS", "SMS"] as const)(
     "preserves the %s preferred-service selection",
     (preferredService) => {
       const message = linqMessage("hello", preferredService ? { preferredService } : {});
 
-      expect(compileLinqSendOptions(message)).toEqual(preferredService ? { preferredService } : {});
+      expect(compileLinqMessage(message).options).toEqual(
+        preferredService ? { preferredService } : {},
+      );
     },
   );
 
   it.each(SCREEN_EFFECTS)("accepts the %s screen effect", (name) => {
     expect(
-      compileLinqSendOptions(linqMessage("hello", { effect: { type: "screen", name } })),
+      compileLinqMessage(linqMessage("hello", { effect: { type: "screen", name } })).options,
     ).toEqual({ effect: { type: "screen", name } });
   });
 
   it.each(BUBBLE_EFFECTS)("accepts the %s bubble effect", (name) => {
     expect(
-      compileLinqSendOptions(linqMessage("hello", { effect: { type: "bubble", name } })),
+      compileLinqMessage(linqMessage("hello", { effect: { type: "bubble", name } })).options,
     ).toEqual({ effect: { type: "bubble", name } });
   });
 
@@ -52,13 +54,12 @@ describe("compileLinqSendOptions", () => {
       ],
     } as const;
 
-    expect(compileLinqSendOptions(linqMessage("hello", enhancements))).toEqual({
+    expect(compileLinqMessage(linqMessage("hello", enhancements)).options).toEqual({
       effect: enhancements.effect,
     });
     expect(
-      compileLinqSendOptions(
-        linqMessage("hello", { preferredService: "iMessage", ...enhancements }),
-      ),
+      compileLinqMessage(linqMessage("hello", { preferredService: "iMessage", ...enhancements }))
+        .options,
     ).toEqual({ preferredService: "iMessage", effect: enhancements.effect });
   });
 
@@ -75,7 +76,7 @@ describe("compileLinqSendOptions", () => {
     ["screen name on bubble", { effect: { type: "bubble", name: "confetti" } }],
   ])("rejects hostile %s input", (_name, linq) => {
     const message = { raw: "hello", linq } as AdapterPostableMessage;
-    expect(() => compileLinqSendOptions(message)).toThrow(ValidationError);
+    expect(() => compileLinqMessage(message).options).toThrow(ValidationError);
   });
 });
 

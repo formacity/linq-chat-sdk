@@ -85,18 +85,10 @@ type LinqOptionsRecord = Record<string, unknown> | undefined;
 
 type TextFragment = CompiledLinqMessageText;
 
-/** Compile the primary Linq text part and all inline decorations before any I/O. */
-export function compileLinqMessageText(message: AdapterPostableMessage): CompiledLinqMessageText {
-  return compileLinqMessageTextWithOptions(
-    trimFragment(compilePostable(message)),
-    readLinqOptions(message, false),
-  );
-}
-
 /** Compile all adapter-owned text and request metadata through one validated options snapshot. */
 export function compileLinqMessage(message: AdapterPostableMessage): CompiledLinqMessage {
   const rendered = trimFragment(compilePostable(message));
-  const linq = readLinqOptions(message, true);
+  const linq = readLinqOptions(message);
   const content = compileLinqMessageTextWithOptions(rendered, linq);
   const options = compileLinqSendOptionsFromOptions(linq);
   validateCompiledLinqMention(content, options);
@@ -155,10 +147,6 @@ export function resolveCompiledLinqMention(
 }
 
 /** Validate and compile Linq's message-level service/effect request fields before any I/O. */
-export function compileLinqSendOptions(message: AdapterPostableMessage): CompiledLinqSendOptions {
-  return compileLinqSendOptionsFromOptions(readLinqOptions(message, true));
-}
-
 function compileLinqSendOptionsFromOptions(linq: LinqOptionsRecord): CompiledLinqSendOptions {
   if (!linq) return {};
 
@@ -691,11 +679,10 @@ function renderLabeledUrl(label: string | undefined, url: string): string {
   return label && label !== url ? `${label}: ${url}` : url;
 }
 
-function readLinqOptions(message: AdapterPostableMessage, strict: boolean): LinqOptionsRecord {
+function readLinqOptions(message: AdapterPostableMessage): LinqOptionsRecord {
   if (typeof message === "string" || !isRecord(message) || message.linq === undefined) {
     return undefined;
   }
-  if (isRecord(message.linq)) return message.linq;
-  if (strict) throw validationError("Linq message options must be an object.");
-  return undefined;
+  if (isRecord(message.linq) && !Array.isArray(message.linq)) return message.linq;
+  throw validationError("Linq message options must be an object.");
 }

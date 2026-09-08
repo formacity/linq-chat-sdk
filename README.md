@@ -17,16 +17,18 @@ identity.
 ## Development
 
 ```bash
-pnpm install
-pnpm check
+pnpm --filter @forma/linq-chat-sdk-adapter... install --frozen-lockfile
+pnpm check:adapter
 ```
 
-`pnpm check` runs the canonical webhook event-name drift check, lint, formatting, tests,
-TypeScript contracts, and workspace builds. CI runs the same check on Node.js 20 and 24.
+`pnpm check:adapter` runs the canonical webhook event-name drift check, adapter lint, formatting,
+tests, TypeScript contracts, and build. CI installs the full workspace and runs `pnpm check` on
+Node.js 22.12 and 24, including the example application's typecheck and build.
 
-The adapter currently uses `@linqapp/sdk@0.44.3` for provider operations, Chat SDK `4.38.1`, and
-`standardwebhooks` for inbound authentication. Its verified webhook envelope remains adapter-owned
-because the installed Linq SDK does not provide the required verification/event contract.
+Exact toolchain and dependency versions live in the [root manifest](package.json),
+[adapter manifest](packages/adapter-linq/package.json), and [lockfile](pnpm-lock.yaml).
+See the adapter [consumer README](packages/adapter-linq/README.md) for supported contracts and
+[maintenance guide](packages/adapter-linq/MODERNIZATION.md) for toolchain policy and release checks.
 
 ## Maintenance
 

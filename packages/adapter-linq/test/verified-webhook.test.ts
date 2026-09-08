@@ -1,12 +1,10 @@
-import { createHmac } from "node:crypto";
 import type { ChatInstance } from "chat";
 import { describe, expect, it, vi } from "vitest";
 
 import { createLinqAdapter } from "../src/index.js";
 import fixture from "./fixtures/message-received-2026-02-03.json";
 
-const SIGNING_KEY = "test_linq_webhook_secret";
-const SIGNING_SECRET = `whsec_${Buffer.from(SIGNING_KEY).toString("base64")}`;
+import { createSignedBody, createStandardRequest, SIGNING_SECRET } from "./webhook-fixture.js";
 
 describe("LinqAdapter verified webhook ingress", () => {
   it("reads, verifies, and parses a Standard Webhook exactly once", async () => {
@@ -195,6 +193,63 @@ describe("LinqAdapter verified webhook ingress", () => {
         signingSecret: "whsec_not-valid-base64!",
       }),
     ).toThrow("valid Standard Webhooks signing secret");
+  });
+
+  it.each(["", "whsec_"])("rejects an empty decoded static secret: %s", (signingSecret) => {
+    expect(() => createLinqAdapter({ apiKey: "test-key", signingSecret })).toThrow();
+  });
+
+  it("reports an empty decoded lazy secret as a configuration failure", async () => {
+    const credentials = vi.fn().mockResolvedValue({ apiKey: "test-key", signingSecret: "whsec_" });
+    const adapter = createLinqAdapter({ credentials });
+    await expect(adapter.verifyWebhook(createStandardRequest(fixture))).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_signing_secret", status: 503 },
+    });
+    expect(credentials).toHaveBeenCalledOnce();
+  });
+
+  it("keeps authentication before empty-body JSON validation", async () => {
+    await expect(createTestAdapter().verifyWebhook(createSignedBody(""))).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_json", status: 400 },
+    });
+    await expect(
+      createTestAdapter().verifyWebhook(createSignedBody("", { signature: "v1,bad" })),
+    ).resolves.toMatchObject({ ok: false, error: { code: "invalid_signature", status: 401 } });
+  });
+
+  it("does not authenticate bytes via lossy UTF-8 replacement", async () => {
+    const body = Buffer.concat([Buffer.from('{"bad":"'), Buffer.from([0xff]), Buffer.from('"}')]);
+    await expect(
+      createTestAdapter().verifyWebhook(createSignedBody(body, { "webhook-timestamp": "1" })),
+    ).resolves.toMatchObject({ ok: false, error: { code: "stale_timestamp", status: 401 } });
+    // The signature for a replacement character must not authenticate a different byte sequence.
+    const replacement = createSignedBody(body.toString("utf8"));
+    const forged = new Request(replacement.url, {
+      method: "POST",
+      headers: replacement.headers,
+      body,
+    });
+    await expect(createTestAdapter().verifyWebhook(forged)).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_signature", status: 401 },
+    });
+  });
+
+  it("retains raw UTF-8 bytes, whitespace, and signed BOM JSON error semantics", async () => {
+    const body = `  ${JSON.stringify({ ...fixture, extra: "😀e\u0301" })}\n`;
+    const result = await createTestAdapter().verifyWebhook(createSignedBody(body));
+    expect(result).toMatchObject({
+      ok: true,
+      webhook: {
+        rawBody: body,
+        rawBodyBase64: Buffer.from(body).toString("base64"),
+      },
+    });
+    await expect(
+      createTestAdapter().verifyWebhook(createSignedBody(`\ufeff${JSON.stringify(fixture)}`)),
+    ).resolves.toMatchObject({ ok: false, error: { code: "invalid_json", status: 400 } });
   });
 
   it("acknowledges a malformed authenticated current payload without false dispatch", async () => {
@@ -780,38 +835,4 @@ type MutableFixture = Record<string, unknown> & {
 
 function cloneFixture(): MutableFixture {
   return structuredClone(fixture) as unknown as MutableFixture;
-}
-
-function createStandardRequest(
-  payload: unknown,
-  overrides: Record<string, string> & { signature?: string } = {},
-): Request {
-  return createSignedBody(JSON.stringify(payload), overrides);
-}
-
-function createSignedBody(
-  body: string,
-  overrides: Record<string, string> & { signature?: string } = {},
-): Request {
-  const timestamp = overrides["webhook-timestamp"] ?? Math.floor(Date.now() / 1000).toString();
-  const webhookId = overrides["webhook-id"] ?? "webhook-test-id";
-  const signature =
-    overrides.signature ??
-    `v1,${createHmac("sha256", SIGNING_KEY)
-      .update(`${webhookId}.${timestamp}.${body}`)
-      .digest("base64")}`;
-  const headers = new Headers({
-    "content-type": "application/json",
-    "webhook-id": webhookId,
-    "webhook-signature": signature,
-    "webhook-timestamp": timestamp,
-  });
-
-  for (const [name, value] of Object.entries(overrides)) {
-    if (name !== "signature") {
-      headers.set(name, value);
-    }
-  }
-
-  return new Request("https://example.com/webhooks/linq", { method: "POST", headers, body });
 }

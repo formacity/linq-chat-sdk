@@ -1,8 +1,8 @@
 # Linq webhook checklist
 
-Provider facts here were reverified on **2026-08-22**. Start with the current
+Provider facts here were reverified on **2026-09-07**. Start with the current
 [`docs.linqapp.com` index](https://docs.linqapp.com/llms.txt),
-[webhook guide](https://docs.linqapp.com/guides/webhooks/), and
+[webhook guide](https://docs.linqapp.com/channel/imessage/guides/webhooks/), and
 [canonical OpenAPI](https://cdn.linqapp.com/openapi/linq-api-v3.yaml). Then inspect the resolved
 `@linqapp/sdk` types and current repository tests. Record disagreements; do not resolve them from
 this summary alone.
@@ -17,10 +17,12 @@ Always preserve the raw request body until authentication succeeds.
 - Verify `{webhook-id}.{webhook-timestamp}.{raw_body}` using the subscription secret.
 - Standard secrets use `whsec_` plus base64 key material; signatures contain `v1,{base64}` values.
 - Reject timestamps outside five minutes and compare signatures in constant time.
-- Use the direct `standardwebhooks` reference implementation. The current SDK's `Webhooks` class is
-  empty even though provider documentation still describes `webhooks.unwrap()`.
+- Use `standardwebhooks@1.1.1` directly. SDK `0.62.0` now has `webhooks.unwrap()`, but the
+  adapter preserves its exact-byte, trusted-forwarding, and error contract independently.
+- Reject empty decoded secrets. Parse JSON explicitly after authentication, including an empty
+  body, and reject lossy UTF-8 decoding before signature verification.
 
-Linq's current [Chat SDK integration page](https://docs.linqapp.com/guides/integrations/chat-sdk/)
+Linq's current [Chat SDK integration page](https://docs.linqapp.com/channel/imessage/guides/integrations/chat-sdk/)
 also describes an older `{timestamp}.{body}` HMAC shape. The primary webhook guide and Standard
 Webhooks headers are authoritative for this adapter:
 `{webhook-id}.{webhook-timestamp}.{raw_body}`. Do not copy the integration page's older signature
@@ -71,8 +73,9 @@ behavior, or provider delivery reliability. Historical real-delivery observation
 
 The checked-in inventory records only the canonical event-name enum supporting the public typed
 event contract. Run `pnpm openapi:check` to detect that schema drift. Installed
-`@linqapp/sdk@0.44.3` has no unwrap union; do not use generated SDK webhook wrappers as a
-closed-world boundary.
+`@linqapp/sdk@0.62.0` includes unwrap and event types; generated wrappers are still not a
+closed-world boundary. All 46 canonical names, including raw-only `contact_card.received`, are
+checked against OpenAPI.
 
 ## Repository setup and storage
 
@@ -101,3 +104,12 @@ The `2026-02-03` envelope includes `api_version`, `webhook_version`, `event_type
 Before changing parsing, compare the official event guide/OpenAPI, installed SDK declarations,
 `packages/adapter-linq/src/webhook.ts`, and current fixtures. Preserve provider facts that cannot be
 normalized faithfully in the verified raw envelope.
+
+## Mention and raw-fact boundaries
+
+Inbound `mentions[]` is authoritative whenever present. Owner detection requires an exact owner
+handle, `is_me: true`, and a valid UTF-16 range. Owner position and inbound formatting do not
+exclude a mention. Only omitted modern fields use the deprecated singular fallback. Outbound
+mentions stay singular. Contact-card events identify a line rather than a chat and receive only
+named/raw dispatch. Unknown sticker/reaction details and `zero_retention` remain lossless;
+applications own any contact, retention, or download workflow.

@@ -45,6 +45,7 @@ import type {
   LinqVoiceMemoResult,
   LinqVoiceMemoSource,
   LinqWebhookVerifier,
+  LinqWebhookRawValue,
   LinqVerifiedUnhandledWebhook,
   LinqVerifiedWebhook,
   LinqWebhookVerificationResult,
@@ -174,6 +175,10 @@ function assertTypedEventRegistration(adapter: LinqAdapter): void {
     expectTypeOf(event).toEqualTypeOf<LinqEventMap["chat.created"]>();
     expectTypeOf(event.type).toEqualTypeOf<"chat.created">();
     expectTypeOf(event.data).not.toBeAny();
+  });
+  adapter.onLinqEvent("contact_card.received", (event) => {
+    expectTypeOf(event.type).toEqualTypeOf<"contact_card.received">();
+    expectTypeOf(event.data).toEqualTypeOf<LinqWebhookRawValue>();
   });
   adapter.onLinqEvent("poll.received", (event) => {
     expectTypeOf(event.data).toEqualTypeOf<LinqPollReceivedEventData>();

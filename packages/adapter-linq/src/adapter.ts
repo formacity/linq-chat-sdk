@@ -213,6 +213,7 @@ export interface LinqConversation {
   readonly location: LinqLocationConversation;
 }
 
+// Chat 4.40.0 exposes thread() on Chat but still omits it from ChatInstance.
 type ChatWithThreads = ChatInstance & { thread(threadId: string): Thread };
 
 const MAX_CONSECUTIVE_FILTERED_HISTORY_PAGES = 10;

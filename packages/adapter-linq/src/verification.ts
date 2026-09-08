@@ -97,7 +97,7 @@ async function verifyStandardWebhook(
   }
 
   const rawBytes = new Uint8Array(await request.arrayBuffer());
-  const rawBody = new TextDecoder().decode(rawBytes);
+  const rawBody = Buffer.from(rawBytes).toString("utf8");
   const timestamp = request.headers.get(STANDARD_TIMESTAMP_HEADER)?.trim() || "";
 
   if (!isFreshTimestamp(timestamp)) {
@@ -106,10 +106,14 @@ async function verifyStandardWebhook(
 
   try {
     const verifier = new Webhook(signingSecret);
-    const event: unknown = verifier.verify(
-      Buffer.from(rawBytes),
-      Object.fromEntries(request.headers),
-    );
+    // standardwebhooks signs Buffer payloads through UTF-8 strings. Refuse a lossy
+    // round trip so a signature can never authenticate substituted raw bytes.
+    if (!Buffer.from(rawBody, "utf8").equals(rawBytes)) return invalidSignature();
+    verifier.verify(Buffer.from(rawBytes), Object.fromEntries(request.headers), {
+      jsonParse: false,
+    });
+    // Parse only after authentication, including an empty body (invalid JSON).
+    const event: unknown = JSON.parse(rawBody);
 
     return {
       ok: true,

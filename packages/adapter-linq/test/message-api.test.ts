@@ -230,8 +230,13 @@ describe("linqMessage Chat SDK transport", () => {
 
     expect(context.state.set).toHaveBeenCalledWith(
       expect.stringMatching(/^chat:callback:/),
-      { originalValue: "order-123", url: "https://example.com/callback" },
-      30 * 24 * 60 * 60 * 1000,
+      {
+        actionId: "approve",
+        originalValue: "order-123",
+        scope: { id: "linq:chat-123", type: "thread" },
+        url: "https://example.com/callback",
+      },
+      7 * 24 * 60 * 60 * 1000,
     );
     const transported = context.postMessage.mock.calls[0]?.[1];
     expect(transported).toMatchObject({ linq: OPTIONS, type: "card" });

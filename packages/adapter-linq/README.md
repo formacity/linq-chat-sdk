@@ -3,6 +3,10 @@
 A private Forma-maintained Linq adapter for [Chat SDK](https://www.npmjs.com/package/chat).
 Linq's published package remains `@linqapp/chat-sdk-adapter`.
 
+Requires Node.js 22.12+ on the 22 line or Node.js 24, and Chat SDK `^4.40.0`
+(tested at `4.40.0`). Runtime dependencies are pinned to Linq SDK `0.62.0`,
+Chat/shared `4.40.0`, and `standardwebhooks@1.1.1`.
+
 ## Setup
 
 ```ts
@@ -14,7 +18,8 @@ const linq = createLinqAdapter({
   signingSecret: process.env.LINQ_SIGNING_SECRET!,
 });
 
-const chat = new Chat({ adapters: { linq } });
+// Supply your application's configured Chat SDK StateAdapter.
+const chat = new Chat({ userName: "linq-bot", adapters: { linq }, state });
 export const POST = chat.webhooks.linq;
 ```
 
@@ -35,7 +40,10 @@ Lazy credentials resolve once per logical adapter operation. Static API keys exp
 `adapter.client`; every configuration supports `await adapter.getClient()`. Construction enforces
 a usable credential and webhook authority even though the released, source-compatible config type
 has optional fields. Static direct secrets are validated exactly by `standardwebhooks`; lazy
-secrets are validated per request and values are never trimmed.
+secrets are validated per request and values are never trimmed. Empty decoded secrets are invalid.
+Authenticated empty bodies return `invalid_json`; unauthenticated bodies never reach JSON parsing.
+Direct verification rejects lossy UTF-8 decoding so replacement characters cannot authenticate
+different request bytes.
 
 ## Standard Chat SDK behavior
 
@@ -111,10 +119,20 @@ await groupThread.post(
 );
 ```
 
-Mentions cannot share their text part with manual decorations or a rich link. Derived formatting
+Outbound mentions remain singular `mention` / `mention_range` per text part and cannot share
+their text part with manual decorations or a rich link. Derived formatting
 may degrade to plain text to preserve the mention. RCS/SMS intent is accepted, but recipient
 presentation remains provider/device-owned. RCS/SMS cannot combine with iMessage-only effects,
 animations, or manual decorations.
+
+Inbound group mentions use the authenticated `mentions[]` entries, including an owner mentioned
+second or multiple times. An entry must have `is_me: true`, the exact `chat.owner_handle.handle`,
+and a non-empty, bounded UTF-16 range that does not split a surrogate pair. Inbound formatting
+is allowed alongside mentions. Only payloads that omit `mentions` use the deprecated first-target
+`mention` / optional `mention_range` fallback; present null, empty, or malformed modern fields
+never fall back. The existing `mentionTarget` / `mentionRange` observations describe only those
+deprecated first-target fields; complete modern mentions remain available in the immutable raw
+part and received event data. Display text alone never establishes mention identity.
 
 ## Conversation-scoped Linq extensions
 
@@ -187,6 +205,11 @@ listener snapshots, fast acknowledgement, and Chat SDK `waitUntil` integration s
 pipeline. All nine current poll event families use this pipeline; there is no separate poll
 registry or polling workflow.
 
+`contact_card.received` is a named/raw event for a card shared with a line; it does not imply a
+chat, a downloadable Chat attachment, or a contact workflow. Unknown reaction/sticker values and
+`zero_retention` remain lossless raw facts. Retention is per event: the adapter does not infer
+missing content, refetch it, persist it, or change acknowledgement based on this flag.
+
 This seam is not a durable queue. Hosts own HTTP limits and request lifecycle; applications own
 persistence and long-running work.
 
@@ -218,10 +241,12 @@ the repository [scope](../../scope.md) for the ownership boundary.
 
 ## Development
 
-The peer floor is Chat SDK `4.38`; the adapter-level `reply()` and `markAsRead()` hooks are absent
-from released `4.28.1` declarations/runtime.
+The tested peer floor is Chat SDK `4.40.0`. Use pnpm `12.3.4` and Node.js 22.12 or 24.
+TypeScript `7.0.2` emits ESM, declarations, and both map types; packaged sources make the maps
+resolvable. The adapter test/build path does not need a legacy TypeScript compiler-API alias.
 
 ```bash
+pnpm --filter @forma/linq-chat-sdk-adapter... install --frozen-lockfile
 pnpm --filter @forma/linq-chat-sdk-adapter test
 pnpm --filter @forma/linq-chat-sdk-adapter typecheck
 pnpm --filter @forma/linq-chat-sdk-adapter lint

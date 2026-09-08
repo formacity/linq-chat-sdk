@@ -30,6 +30,7 @@ export const LINQ_KNOWN_EVENT_TYPES = [
   "chat.typing_indicator.started",
   "chat.typing_indicator.stopped",
   "phone_number.status_updated",
+  "contact_card.received",
   "call.initiated",
   "call.ringing",
   "call.answered",

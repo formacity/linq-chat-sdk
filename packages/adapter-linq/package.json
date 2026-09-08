@@ -1,6 +1,6 @@
 {
   "name": "@forma/linq-chat-sdk-adapter",
-  "version": "0.1.0-forma.7",
+  "version": "0.1.0-forma.8",
   "private": true,
   "description": "Forma-maintained Linq adapter for Chat SDK",
   "keywords": [
@@ -24,7 +24,8 @@
     "directory": "packages/adapter-linq"
   },
   "files": [
-    "dist"
+    "dist",
+    "src"
   ],
   "type": "module",
   "main": "./dist/index.js",
@@ -47,22 +48,23 @@
     "openapi:check": "node scripts/check-openapi-inventory.mjs"
   },
   "dependencies": {
-    "@chat-adapter/shared": "^4.38.1",
-    "@linqapp/sdk": "^0.44.3",
-    "standardwebhooks": "^1.0.0"
+    "@chat-adapter/shared": "4.40.0",
+    "@linqapp/sdk": "0.62.0",
+    "standardwebhooks": "1.1.1"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
-    "@vitest/coverage-v8": "^4.1.6",
-    "chat": "^4.38.1",
-    "oxfmt": "^0.50.0",
-    "oxlint": "^1.65.0",
-    "vitest": "^4.1.6"
+    "@types/node": "22.20.1",
+    "@vitest/coverage-v8": "5.0.0",
+    "chat": "4.40.0",
+    "oxfmt": "0.67.0",
+    "oxlint": "1.82.0",
+    "vite": "8.2.2",
+    "vitest": "5.0.0"
   },
   "peerDependencies": {
-    "chat": "^4.38.0"
+    "chat": "^4.40.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.12.0 || ^24.0.0"
   }
 }

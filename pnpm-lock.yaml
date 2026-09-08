@@ -122,14 +122,14 @@ importers:
   apps/api:
     dependencies:
       '@chat-adapter/state-pg':
-        specifier: ^4.38.1
-        version: 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
+        specifier: ^4.40.0
+        version: 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
       '@chat-adapter/telegram':
-        specifier: ^4.38.1
-        version: 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
+        specifier: ^4.40.0
+        version: 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
       '@chat-adapter/whatsapp':
-        specifier: ^4.38.1
-        version: 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
+        specifier: ^4.40.0
+        version: 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
       '@forma/linq-chat-sdk-adapter':
         specifier: workspace:*
         version: link:../../packages/adapter-linq
@@ -140,8 +140,8 @@ importers:
         specifier: ^6.0.184
         version: 6.0.184(zod@4.4.3)
       chat:
-        specifier: ^4.38.1
-        version: 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
+        specifier: ^4.40.0
+        version: 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
       pg:
         specifier: ^8.20.0
         version: 8.20.0
@@ -240,16 +240,16 @@ packages:
     resolution: {integrity: sha512-uTDl9p+PVkGtAw9dgvRdkydifvYVp98R26vGHhU4V5HuS7DBTedTdb1COUOh6vfP0SrC+xSozp4O/IyfbXZSKw==}
     engines: {node: '>=20'}
 
-  '@chat-adapter/state-pg@4.38.1':
-    resolution: {integrity: sha512-kwr6gfwhp1DjJXlWuMbGq5f36MF0v9A19/gPXLUh/1n188MGoR4eYPFE+QS/VKWl9Pimxh564i+rZ5m41zE5kw==}
+  '@chat-adapter/state-pg@4.40.0':
+    resolution: {integrity: sha512-EmUAgJNLF0dpF1cm4sw4NKxVmtunYiqGoNADiasW/T/JhKiJLCH9KMhjtxG5ZgEwORGvcKGEOCnhocTY/fylcw==}
     engines: {node: '>=20'}
 
-  '@chat-adapter/telegram@4.38.1':
-    resolution: {integrity: sha512-twFrW8s+2+93jBhKlLcuLudqD986jjJgLHjHGxHnRWqx20jKEx7BlGSgx/Y8jH1UAhOyPZGaJd6cYYoj07U4Lg==}
+  '@chat-adapter/telegram@4.40.0':
+    resolution: {integrity: sha512-SbAjiGIMWEK+nR7tdMenmAvnaUDSNQM8cqXc7zFBSbc5lCWtkcBEDsfpMGueqVR3FSsEnwOpOdWFHCsGgseiCQ==}
     engines: {node: '>=20'}
 
-  '@chat-adapter/whatsapp@4.38.1':
-    resolution: {integrity: sha512-ctYjkpFO0S9MIPwI00T9gB6hECx3aGdgHN87UI+2QR8oww3RkNYvrxf3EJ6owKafpnj1puE0NlRiLXLjvPKTew==}
+  '@chat-adapter/whatsapp@4.40.0':
+    resolution: {integrity: sha512-gu8M7klCSNwU/oAGiKio8MokiIFBgZXDMjj5GvKnp5fgaXP/i5vdahru2H4vdE7uWrZf3UEwpBHBTPoxfXm+Lw==}
     engines: {node: '>=20'}
 
   '@emnapi/core@1.10.0':
@@ -2243,9 +2243,9 @@ snapshots:
       - workflow
       - zod
 
-  '@chat-adapter/state-pg@4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)':
+  '@chat-adapter/state-pg@4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)':
     dependencies:
-      chat: 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
+      chat: 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
       pg: 8.20.0
     transitivePeerDependencies:
       - ai
@@ -2254,20 +2254,20 @@ snapshots:
       - workflow
       - zod
 
-  '@chat-adapter/telegram@4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)':
+  '@chat-adapter/telegram@4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)':
     dependencies:
-      '@chat-adapter/shared': 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
-      chat: 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
+      '@chat-adapter/shared': 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
+      chat: 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
     transitivePeerDependencies:
       - ai
       - supports-color
       - workflow
       - zod
 
-  '@chat-adapter/whatsapp@4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)':
+  '@chat-adapter/whatsapp@4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)':
     dependencies:
-      '@chat-adapter/shared': 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
-      chat: 4.38.1(ai@6.0.184(zod@4.4.3))(zod@4.4.3)
+      '@chat-adapter/shared': 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
+      chat: 4.40.0(ai@6.0.184(zod@4.4.3))(supports-color@7.2.0)(zod@4.4.3)
     transitivePeerDependencies:
       - ai
       - supports-color

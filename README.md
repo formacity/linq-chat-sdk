@@ -22,14 +22,13 @@ pnpm check:adapter
 ```
 
 `pnpm check:adapter` runs the canonical webhook event-name drift check, adapter lint, formatting,
-tests, TypeScript contracts, and build. CI runs this adapter-only check on Node.js 22.12 and 24.
-The example application is maintained separately and is outside this validation target.
+tests, TypeScript contracts, and build. CI installs the full workspace and runs `pnpm check` on
+Node.js 22.12 and 24, including the example application's typecheck and build.
 
-The adapter pins Linq SDK `0.62.0`, Chat/shared `4.40.0`, and `standardwebhooks@1.1.1`.
-Development uses pnpm `12.3.4`, TypeScript `7.0.2`, and Vitest `5.0.0` with Vite `8.2.2`.
-The SDK now exposes `webhooks.unwrap()`; the adapter retains its verified boundary for exact bytes,
-explicit trusted forwarding, stable errors, and lossless future events. See the adapter
-[modernization notes](packages/adapter-linq/MODERNIZATION.md) for migration and local release checks.
+Exact toolchain and dependency versions live in the [root manifest](package.json),
+[adapter manifest](packages/adapter-linq/package.json), and [lockfile](pnpm-lock.yaml).
+See the adapter [consumer README](packages/adapter-linq/README.md) for supported contracts and
+[maintenance guide](packages/adapter-linq/MODERNIZATION.md) for toolchain policy and release checks.
 
 ## Maintenance
 

@@ -30,6 +30,7 @@ Surface scope or security decisions that require new authority while continuing 
 Use the maintenance guide to distinguish focused development checks from release verification.
 External evidence is not a universal completion gate; report the evidence actually obtained.
 
-Keep commits coherent and preserve unrelated work. Use `codex/` branches and Conventional Commits.
+Keep commits coherent and preserve unrelated work. Use Conventional Commits and work directly on
+`main` unless the user requests a branch.
 `main` is Forma's development branch; `upstream/main` is a read-only update source. Publication
 and immutable release requirements are in the maintenance guide.

@@ -16,6 +16,10 @@ identity.
 
 ## Development
 
+Coding-agent context and authorization rules live in [AGENTS.md](AGENTS.md). Repository-owned
+skills under `.agents/skills/` are maintained here; installed package docs and generated event
+types retain their own sources of truth.
+
 ```bash
 pnpm --filter @forma/linq-chat-sdk-adapter... install --frozen-lockfile
 pnpm check:adapter

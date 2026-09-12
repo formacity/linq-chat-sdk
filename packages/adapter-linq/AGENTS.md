@@ -1,9 +1,12 @@
 # Linq adapter contributor rules
 
 Use [FEATURE_PARITY.md](FEATURE_PARITY.md) for capability status, [README.md](README.md) for consumer
-contracts, and the repository [scope](../../scope.md) for ownership. Before changing behavior,
-reconcile installed Chat SDK contracts, installed `@linqapp/sdk`, canonical Linq OpenAPI/docs, and
-the `chat-sdk` and `integrating-linq` skills.
+contracts, and the repository [scope](../../scope.md) for ownership.
+
+For Chat SDK interface changes, inspect the installed `chat` contracts and use the `chat-sdk`
+skill. For provider operations, event schemas, or authentication changes, use `integrating-linq`
+and reconcile the relevant installed SDK and official provider contracts. Documentation-only
+edits do not require a provider-wide reconciliation.
 
 ## Invariants
 
@@ -27,5 +30,6 @@ the `chat-sdk` and `integrating-linq` skills.
 ## Change quality
 
 Keep changes application-neutral and reviewable. Preserve public-path hostile-input, identity,
-webhook, history, media, compiler, error, and Chat SDK integration coverage. Update only affected
-consumer docs and parity rows. Provider/device/live evidence is supplementary, not a routine gate.
+webhook, history, media, compiler, error, and Chat SDK integration coverage. Update affected
+consumer docs and parity rows using the evidence definitions in FEATURE_PARITY.md.
+Use [MODERNIZATION.md](MODERNIZATION.md) for focused validation and release checks.

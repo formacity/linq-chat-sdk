@@ -41,3 +41,13 @@ uncertain mutation acceptance, provider workflows, or deployment policy.
   adapter does not impose a curated conversation-state model.
 - Chat backgrounds stay on `adapter.client` / `getClient()` while guidance and request enums
   disagree (`glitter` versus `sky`/`water`/`aurora`).
+
+## Deferred design decisions
+
+- Reconsider raw Chat SDK `FileUpload` voice memos when a production-bound consumer already holds
+  generated audio bytes and would otherwise duplicate attachment preparation, upload security,
+  cleanup, and voice-memo dispatch.
+- Reconsider large-file streaming after measured memory failures or budget violations with
+  representative media, or when Chat SDK defines a streaming binary-source contract.
+
+These are change triggers, not unfinished implementation requirements for the current adapter.

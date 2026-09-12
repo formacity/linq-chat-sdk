@@ -26,18 +26,37 @@ When provider guides disagree, reconcile the primary webhook guide, canonical Op
 implementation. Inspect shipped SDK/runtime declarations as well as documentation before changing
 contracts; an index summary is not evidence of pinned-package support.
 
-## Local validation and candidate verification
+## Development validation
 
-Run on both runtime lines in the [CI matrix](../../.github/workflows/ci.yml):
+Choose checks for the affected contract. Documentation and instruction changes need reference,
+metadata, and consistency checks, plus formatting for changed files. For adapter code, use the
+relevant Vitest suites and typecheck; `pnpm check:adapter` provides the aggregate adapter check.
+The tests use fixture data and mocked provider operations; no live credentials are needed.
+Run and repair affected local checks within the authorized task without repeated approval.
+
+`pnpm openapi:check` fetches the public canonical OpenAPI without credentials. Both aggregate
+checks include it, so they require network access even though the test suites are deterministic.
+If that fetch is unavailable, run the affected local checks directly and report drift verification
+as unavailable. Do not substitute live MCP calls or real messages for local tests.
+
+Dependency installation is explicit: use the frozen install in the [root README](../../README.md).
+If the dependency guard blocks a command, restore the intended installed graph without changing
+the lockfile incidentally. Review lifecycle permissions and release-age exceptions narrowly.
+
+CI retains full-workspace checks on both runtime lines, including the example application.
+Changes to shared tooling or adapter interfaces need relevant example validation; a scoped edit
+does not require a new release candidate or coverage run.
+
+## Release candidate verification
+
+When preparing a release candidate, run on both runtime lines in the
+[CI matrix](../../.github/workflows/ci.yml):
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm check
 pnpm --filter @forma/linq-chat-sdk-adapter exec vitest run --coverage --coverage.include "src/**/*.ts"
 ```
-
-For scoped adapter development, use the filtered install and `pnpm check:adapter` documented in the
-[root README](../../README.md). This does not replace full-workspace CI coverage.
 
 Before release, commit the validated source, build from that revision, and pack once to a unique
 local candidate directory. Record the exact package version, full source revision, absolute

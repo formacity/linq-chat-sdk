@@ -1,9 +1,9 @@
 # Linq webhook checklist
 
-Provider facts here were reverified on **2026-09-07**. Start with the current
+Provider facts here were reverified on **2026-09-07**. When changing these contracts, consult the relevant current
 [`docs.linqapp.com` index](https://docs.linqapp.com/llms.txt),
 [webhook guide](https://docs.linqapp.com/channel/imessage/guides/webhooks/), and
-[canonical OpenAPI](https://cdn.linqapp.com/openapi/linq-api-v3.yaml). Then inspect the resolved
+[canonical OpenAPI](https://cdn.linqapp.com/openapi/linq-api-v3.yaml). Inspect the relevant resolved
 `@linqapp/sdk` types and current repository tests. Record disagreements; do not resolve them from
 this summary alone.
 
